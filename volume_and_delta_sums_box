@@ -1,0 +1,54 @@
+//@version=6
+indicator("Volume & Delta Sum Box", overlay=true)
+
+// === User Inputs ===
+length1 = input.int(6, minval=1, title="Volume Sum #1 (bars)", tooltip="Bar count includes the live candle. E.g. 6 = 5 closed bars + 1 live")
+length2 = input.int(16, minval=1, title="Volume Sum #2 (bars)", tooltip="Bar count includes the live candle. E.g. 16 = 15 closed bars + 1 live")
+tablePositionInput = input.string("top_right", title="Table Position", options=["top_right", "top_left", "bottom_right", "bottom_left"])
+boxBgColor    = input.color(color.black, title="Box Background Color")
+boxBgOpacity  = input.int(80, minval=0, maxval=100, title="Box Background Opacity (0–100)")
+fontColor     = input.color(color.white, title="Font Color")
+fontSizeInput = input.string("normal", title="Font Size", options=["tiny", "small", "normal", "large", "huge"])
+
+// === Determine table position
+tablePosition = switch tablePositionInput
+    "top_right" => position.top_right
+    "top_left" => position.top_left
+    "bottom_right" => position.bottom_right
+    => position.bottom_left
+
+// === Fixed 1-minute timeframe
+tf = "1"
+
+// === Volume calculation function
+getVolumes(len) =>
+    volBull = math.sum(volume * (close > open ? 1 : 0), len)
+    volBear = math.sum(volume * (close < open ? 1 : 0), len)
+    volTotal = math.sum(volume, len)
+    [volBull, volBear, volTotal]
+
+// === Fetch data
+[volBull1, volBear1, volTot1] = request.security(syminfo.tickerid, tf, getVolumes(length1))
+[volBull2, volBear2, volTot2] = request.security(syminfo.tickerid, tf, getVolumes(length2))
+
+// === Compute delta
+delta1 = volBull1 - volBear1
+delta2 = volBull2 - volBear2
+colorDelta1 = delta1 >= 0 ? color.green : color.red
+colorDelta2 = delta2 >= 0 ? color.green : color.red
+
+// === Create table (fixed line)
+var table volTable = table.new(tablePosition, 2, 4, bgcolor=color.new(boxBgColor, boxBgOpacity), frame_color=color.gray, frame_width=1, border_width=1)
+
+// === Fill table
+table.cell(volTable, 0, 0, "Vol " + str.tostring(length1) + "m:", text_color=fontColor, text_size=fontSizeInput)
+table.cell(volTable, 1, 0, str.tostring(volTot1, format.volume), text_color=fontColor, text_size=fontSizeInput)
+
+table.cell(volTable, 0, 1, "Vol " + str.tostring(length2) + "m:", text_color=fontColor, text_size=fontSizeInput)
+table.cell(volTable, 1, 1, str.tostring(volTot2, format.volume), text_color=fontColor, text_size=fontSizeInput)
+
+table.cell(volTable, 0, 2, "Delta " + str.tostring(length1) + "m:", text_color=fontColor, text_size=fontSizeInput)
+table.cell(volTable, 1, 2, str.tostring(delta1, format.volume), text_color=colorDelta1, text_size=fontSizeInput)
+
+table.cell(volTable, 0, 3, "Delta " + str.tostring(length2) + "m:", text_color=fontColor, text_size=fontSizeInput)
+table.cell(volTable, 1, 3, str.tostring(delta2, format.volume), text_color=colorDelta2, text_size=fontSizeInput)
