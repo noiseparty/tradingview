@@ -1,0 +1,62 @@
+//@version=6
+indicator("Dynamic 8% Range Box (Last 5 Candles)", overlay=true)
+
+// === User Settings ===
+rangeBars = 5
+maxRangePercent = 8.0
+
+boxOpacity = input.int(85, title="Box Fill Opacity (0–100)", minval=0, maxval=100)
+boxColorChoice = input.color(color.blue, title="Box Color")
+borderColor = input.color(color.blue, title="Border Color")
+
+labelOpacity = input.int(10, title="Label Background Opacity (0–100)", minval=0, maxval=100)
+labelTextColor = input.color(color.white, title="Label Text Color")
+labelPosition = input.string("Top", title="Label Position", options=["Top", "Bottom"])
+labelSizeOption = input.string("Small", title="Label Text Size", options=["Tiny", "Small", "Normal", "Large", "Huge"])
+
+// === Convert label size string to Pine enum ===
+labelSize = labelSizeOption == "Tiny" ? size.tiny :
+             labelSizeOption == "Small" ? size.small :
+             labelSizeOption == "Normal" ? size.normal :
+             labelSizeOption == "Large" ? size.large :
+             size.huge  // Default fallback
+
+// === Derived Colors ===
+boxColor = color.new(boxColorChoice, boxOpacity)
+labelBgColor = color.new(boxColorChoice, labelOpacity)
+
+// === High/Low over last N bars
+sessionHigh = ta.highest(high, rangeBars)
+sessionLow = ta.lowest(low, rangeBars)
+priceRange = sessionHigh - sessionLow
+
+// === Compute both move types
+moveUp = priceRange / sessionLow * 100
+moveDown = priceRange / sessionHigh * 100
+
+// === Draw if valid
+drawBox = moveUp <= maxRangePercent
+
+boxStart = bar_index - (rangeBars - 1)
+boxEnd = bar_index
+
+// === Draw box and label
+var box dynamicBox = na
+var label rangeLabel = na
+
+if bar_index > rangeBars
+    box.delete(dynamicBox)
+    label.delete(rangeLabel)
+    
+    if drawBox
+        dynamicBox := box.new(left=boxStart, right=boxEnd, top=sessionHigh, bottom=sessionLow, bgcolor=boxColor, border_color=borderColor, border_width=1)
+        
+        text1 = "Bottom → Top: " + str.tostring(moveUp, "#.##") + "%"
+        text2 = "Top → Bottom: " + str.tostring(moveDown, "#.##") + "%"
+        text3 = "Window: " + str.tostring(rangeBars) + " bars"
+        labelText = text1 + "\n" + text2 + "\n" + text3
+
+        labelY = labelPosition == "Top" ? sessionHigh : sessionLow
+        labelStyle = labelPosition == "Top" ? label.style_label_down : label.style_label_up
+        
+        rangeLabel := label.new(x=boxEnd, y=labelY, text=labelText, style=labelStyle, textcolor=labelTextColor, size=labelSize, color=labelBgColor)
