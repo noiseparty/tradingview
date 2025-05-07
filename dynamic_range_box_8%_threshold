@@ -1,0 +1,56 @@
+//@version=6
+indicator("Dynamic Range Box with 8% Threshold Highlight", overlay=true)
+
+// === User Settings ===
+rangeBars = 5  // Last 5 candles (4 full + current)
+highlightThreshold = 8.0  // Trigger color change if exceeded
+
+baseBoxColor = input.color(color.blue, title="Box Color (≤ 8%)")
+exceedBoxColor = input.color(color.red, title="Box Color (> 8%)")
+borderColor = input.color(color.black, title="Border Color")
+
+boxOpacity = input.int(85, title="Box Opacity (0–100)", minval=0, maxval=100)
+labelOpacity = input.int(10, title="Label Background Opacity (0–100)", minval=0, maxval=100)
+labelTextColor = input.color(color.white, title="Label Text Color")
+labelPosition = input.string("Top", title="Label Position", options=["Top", "Bottom"])
+labelSizeOption = input.string("Small", title="Label Text Size", options=["Tiny", "Small", "Normal", "Large", "Huge"])
+
+// === Map label size string to enum
+labelSize = labelSizeOption == "Tiny" ? size.tiny : labelSizeOption == "Small" ? size.small : labelSizeOption == "Normal" ? size.normal : labelSizeOption == "Large" ? size.large : size.huge
+
+// === High/Low over last N bars
+sessionHigh = ta.highest(high, rangeBars)
+sessionLow = ta.lowest(low, rangeBars)
+priceRange = sessionHigh - sessionLow
+
+// === Compute both move types
+moveUp = priceRange / sessionLow * 100
+moveDown = priceRange / sessionHigh * 100
+isWithinRange = moveUp <= highlightThreshold
+
+// === Color selection
+boxFillColor = color.new(isWithinRange ? baseBoxColor : exceedBoxColor, boxOpacity)
+labelBgColor = color.new(isWithinRange ? baseBoxColor : exceedBoxColor, labelOpacity)
+
+// === Box location
+boxStart = bar_index - (rangeBars - 1)
+boxEnd = bar_index
+
+// === Draw visuals
+var box dynamicBox = na
+var label rangeLabel = na
+
+if bar_index > rangeBars
+    box.delete(dynamicBox)
+    label.delete(rangeLabel)
+
+    dynamicBox := box.new(left=boxStart, right=boxEnd, top=sessionHigh, bottom=sessionLow, bgcolor=boxFillColor, border_color=borderColor, border_width=1)
+
+    text1 = "Bottom → Top: " + str.tostring(moveUp, "#.##") + "%"
+    text2 = "Top → Bottom: " + str.tostring(moveDown, "#.##") + "%"
+    labelText = text1 + "\n" + text2
+
+    labelY = labelPosition == "Top" ? sessionHigh : sessionLow
+    labelStyle = labelPosition == "Top" ? label.style_label_down : label.style_label_up
+
+    rangeLabel := label.new(x=boxEnd, y=labelY, text=labelText, style=labelStyle, textcolor=labelTextColor, size=labelSize, color=labelBgColor)
